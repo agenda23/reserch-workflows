@@ -168,6 +168,20 @@ def update_batch_status(status: str, message: str, progress: int):
     conn.commit()
     conn.close()
 
+def reset_stuck_batch_status():
+    """サーバー起動時に、実行中のままスタックしているバッチステータスをリセットします。"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT status FROM batch_status LIMIT 1")
+    row = cursor.fetchone()
+    if row and row["status"] == "running":
+        cursor.execute(
+            "UPDATE batch_status SET status = ?, message = ?, progress = ?, updated_at = CURRENT_TIMESTAMP",
+            ("failed", "システム再起動により処理が中断されました。", 100)
+        )
+        conn.commit()
+    conn.close()
+
 # ----------------- データ登録・クリア関連 -----------------
 
 def clear_scraped_data():

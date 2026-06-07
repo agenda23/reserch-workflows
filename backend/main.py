@@ -23,6 +23,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup_event():
     db.init_db()
+    db.reset_stuck_batch_status()
 
 # ----------------- Pydantic モデル -----------------
 

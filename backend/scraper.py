@@ -171,21 +171,28 @@ async def scrape_yahoo_suggests(seed_keywords: list):
                     await search_input.fill(seed)
                     await page.wait_for_timeout(1500) # サジェスト表示を待つ
                     
-                    # サジェスト候補の取得 (Yahoo!のサジェスト要素は通常 '.SearchBox_suggestList' や 'ul' など)
-                    suggest_elements = await page.query_selector_all("[role='option']")
+                    # サジェスト候補の取得 (Yahoo!のサジェスト要素は 'ul[aria-label="キーワード入力補助"] a' や '[role="option"]' など)
+                    suggest_elements = await page.query_selector_all('ul[aria-label="キーワード入力補助"] a')
+                    if not suggest_elements:
+                        suggest_elements = await page.query_selector_all("[role='option']")
+                    
+                    seed_added = 0
                     for elem in suggest_elements:
                         text = await elem.inner_text()
                         text = text.strip()
-                        # シードワード自体を含み、かつシードワードと同一でないサジェストワードを抽出
-                        if text and text != seed and seed in text:
+                        # シードワード自体を含み、かつシードワードと同一でないサジェストワードを抽出 (大文字小文字無視)
+                        if text and text.lower() != seed.lower() and (seed.lower() in text.lower()):
                             # タブや改行をスペースに置換
                             cleaned_text = " ".join(text.split())
-                            suggests.append({
-                                "keyword": cleaned_text,
-                                "tweet_count": 0, # サジェストはツイート数不明のため0
-                                "positive_ratio": 0.5
-                            })
-                print(f"シードワード [{seed}] から {len(suggests)} 件のサジェストを取得しました。")
+                            # すでに suggests に入っているか確認（重複防止）
+                            if not any(s["keyword"] == cleaned_text for s in suggests):
+                                suggests.append({
+                                    "keyword": cleaned_text,
+                                    "tweet_count": 0, # サジェストはツイート数不明のため0
+                                    "positive_ratio": 0.5
+                                })
+                                seed_added += 1
+                print(f"シードワード [{seed}] から {seed_added} 件のサジェストを取得しました。")
             except Exception as e:
                 print(f"シードワード [{seed}] のサジェスト取得中にエラーが発生しました: {e}")
             
