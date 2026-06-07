@@ -33,6 +33,8 @@ class SettingsModel(BaseModel):
     ng_keywords: List[str]
     similarity_threshold: float
     note_category: str
+    quadrant_mode: str = "fixed"
+    quadrant_fixed_threshold: float = 0.5
 
 class SimilarityTestRequest(BaseModel):
     keyword: str
@@ -52,6 +54,44 @@ def get_trends(date: Optional[str] = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"データの取得に失敗しました: {str(e)}")
 
+@app.get("/api/note-hashtags")
+async def get_note_hashtags(with_diff: bool = False):
+    """収集されたnoteハッシュタグ統計データを取得します。"""
+    try:
+        results = db.get_all_note_hashtags()
+        if with_diff:
+            for h in results:
+                h["diff"] = db.get_related_tags_diff(h["hashtag"])
+        return {"status": "success", "data": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ハッシュタグデータの取得に失敗しました: {str(e)}")
+
+@app.get("/api/hashtag-cooccurrence")
+def get_hashtag_cooccurrence(seeds: str = ""):
+    """シードタグと共起するキーワードを like_count 重み付きで返します。"""
+    try:
+        if seeds:
+            seed_list = [s.strip() for s in seeds.split(",") if s.strip()]
+        else:
+            seed_list = db.get_settings().get("seed_keywords", [])
+
+        result = {}
+        for seed in seed_list:
+            result[seed] = db.get_cooccurrence_tags_with_status(seed, top_n=20)
+
+        return {"status": "success", "data": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"共起タグデータの取得に失敗しました: {str(e)}")
+
+@app.get("/api/hashtag-history/{hashtag}")
+def get_hashtag_history_api(hashtag: str, limit: int = 10):
+    """指定ハッシュタグの投稿件数推移履歴を返します。"""
+    try:
+        history = db.get_hashtag_history(hashtag, limit=limit)
+        return {"status": "success", "data": history}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ハッシュタグ履歴の取得に失敗しました: {str(e)}")
+
 @app.get("/api/settings", response_model=SettingsModel)
 def get_settings():
     """現在のシステム設定を取得します。"""
@@ -61,8 +101,10 @@ def get_settings():
             "seed_keywords": settings.get("seed_keywords", []),
             "target_themes": settings.get("target_themes", []),
             "ng_keywords": settings.get("ng_keywords", []),
-            "similarity_threshold": float(settings.get("similarity_threshold", 0.55)),
-            "note_category": settings.get("note_category", "technology")
+            "similarity_threshold": float(settings.get("similarity_threshold", 0.81)),
+            "note_category": settings.get("note_category", "technology"),
+            "quadrant_mode": settings.get("quadrant_mode", "fixed"),
+            "quadrant_fixed_threshold": float(settings.get("quadrant_fixed_threshold", 0.5)),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"設定の取得に失敗しました: {str(e)}")
@@ -76,6 +118,8 @@ def update_settings(settings: SettingsModel):
         db.update_setting("ng_keywords", settings.ng_keywords)
         db.update_setting("similarity_threshold", settings.similarity_threshold)
         db.update_setting("note_category", settings.note_category)
+        db.update_setting("quadrant_mode", settings.quadrant_mode)
+        db.update_setting("quadrant_fixed_threshold", settings.quadrant_fixed_threshold)
         return {"status": "success", "message": "設定を保存しました。"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"設定の保存に失敗しました: {str(e)}")
@@ -90,9 +134,14 @@ def test_similarity(payload: SimilarityTestRequest):
         # 類似度計算
         result = local_filter.test_similarity_simulator(payload.keyword, themes)
         
-        # しきい値との比較判定
-        threshold = float(settings.get("similarity_threshold", 0.55))
-        is_relevant = result["max_score"] >= threshold
+        # ネガティブ類似度も計算
+        negatives = settings.get("negative_themes", [])
+        neg_result = local_filter.test_similarity_simulator(payload.keyword, negatives)
+        
+        # しきい値との比較判定（相対比較）
+        threshold = float(settings.get("similarity_threshold", 0.81))
+        diff = result["max_score"] - neg_result["max_score"]
+        is_relevant = (diff >= 0.02) and (result["max_score"] >= threshold)
         
         # NGワードに引っかかっていないかチェック
         ng_keywords = settings.get("ng_keywords", [])
@@ -117,7 +166,7 @@ async def execute_batch_task():
         # 1. 収集タスクの実行
         await scraper.run_collection()
         # 2. 分析タスクの実行
-        analyzer.run_analysis_pipeline()
+        await analyzer.run_analysis_pipeline()
         print("バックグラウンドバッチ処理がすべて完了しました。")
     except Exception as e:
         print(f"バックグラウンドバッチ処理中にエラーが発生しました: {e}")

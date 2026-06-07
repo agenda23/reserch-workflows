@@ -7,7 +7,8 @@ import {
   Activity, 
   CheckCircle2, 
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,8 @@ interface SettingsState {
   ng_keywords: string[]
   similarity_threshold: number
   note_category: string
+  quadrant_mode: string
+  quadrant_fixed_threshold: number
 }
 
 interface TestResultDetail {
@@ -41,7 +44,9 @@ export const Settings: React.FC = () => {
     target_themes: [],
     ng_keywords: [],
     similarity_threshold: 0.55,
-    note_category: "technology"
+    note_category: "technology",
+    quadrant_mode: "fixed",
+    quadrant_fixed_threshold: 0.5,
   })
   
   // 各タグ追加用の入力文字ステート
@@ -189,6 +194,42 @@ export const Settings: React.FC = () => {
               </select>
               <p className="text-[11px] text-muted-foreground">noteで収集する人気記事の対象カテゴリを選択します。</p>
             </div>
+
+            {/* 象限分類モード */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-foreground">4象限分類モード</label>
+              <select
+                value={settings.quadrant_mode}
+                onChange={(e) => setSettings(prev => ({ ...prev, quadrant_mode: e.target.value }))}
+                className="w-full bg-secondary/30 border border-white/10 rounded-md h-9 px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="fixed" className="bg-card text-foreground">固定閾値（推奨・時系列比較可能）</option>
+                <option value="dynamic" className="bg-card text-foreground">動的閾値（バッチデータの平均値）</option>
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                固定モードでは閾値が一定のため、過去バッチとの象限比較が可能です。
+              </p>
+            </div>
+
+            {settings.quadrant_mode === "fixed" && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-semibold text-foreground">固定象限閾値</label>
+                  <span className="font-mono text-sm font-bold text-primary">{settings.quadrant_fixed_threshold.toFixed(2)}</span>
+                </div>
+                <Slider
+                  min={0.3}
+                  max={0.7}
+                  step={0.05}
+                  value={[settings.quadrant_fixed_threshold]}
+                  onValueChange={(val) => setSettings(prev => ({ ...prev, quadrant_fixed_threshold: val[0] }))}
+                  className="flex-1"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  正規化スコアがこの値以上で「高」と判定します（デフォルト: 0.5）。
+                </p>
+              </div>
+            )}
 
             {/* 類似度しきい値 (Slider) */}
             <div className="space-y-2">

@@ -43,3 +43,33 @@
 - [x] Web UIからの設定保存テスト
 - [x] 類似度シミュレータの動作確認
 - [x] Web UIからのバッチ手動実行と詳細進捗（ログ）のリアルタイム更新、およびデータ再読込の連携検証
+
+### 7. プラットフォーム機能の拡張とアプローチ変更
+- [x] noteハッシュタグ統計機能のデータベース設計およびCRUD実装
+- [x] note API v2 経由でのハッシュタグ統計（投稿件数・関連ハッシュタグ）取得機能の実装
+- [x] フロントエンド「ハッシュタグ調査」UI画面の新規作成とApp.tsxへの統合
+- [x] note先行・X話題性突合アプローチへの設計変更とスクレイパー・分析処理の刷新
+- [x] 新アルゴリズムによる動作検証と全ドキュメントのアップデート
+
+### 8. 改善実装計画（Playwrightステルス・実用性強化版）
+- [x] フェーズ1: Playwrightステルス化 & 収集ソース拡張（Qiita/Zenn/Brain/Tips）
+- [x] フェーズ2: 動的ネガティブテーマ自動生成（時事RSS + E5類似度減算）
+- [x] フェーズ3: 供給数調査 & Priority Score実装（DBスキーマ拡張 + analyzer）
+- [x] フェーズ4: UI改善（優先推奨ランキング、供給数/優先度列、クロスメディア比較）
+
+### 9. 修正方針書対応（方法論的問題の解消）
+- [x] P1: 候補キーワードの優先度マップベース選定（`scraper.py`）
+- [x] P2: 動的ネガティブRSSの非テック限定 + 技術用語プリフィルタ（`scraper.py`）
+- [x] P4: 固定閾値モードの追加（`db.py` + `analyzer.py` + `Settings.tsx`）
+- [x] P6: Yahoo!サジェストへの stealth 適用（`scraper.py`）
+- [x] P3-段階1: SUPPLY_BASELINE=50 による最小ベースライン導入（`analyzer.py`）
+- [x] P5: ハッシュタグボーナスのNLP類似度ベース化（`analyzer.py`）
+- [x] P3-段階2: Qiita検索APIによる近似供給数取得（`scraper.py`）
+- [x] supply_count=0 時の Priority Score `~` プレフィックス表示（`Dashboard.tsx`）
+
+### 10. ハッシュタグ調査機能 強化
+- [x] フェーズ1: `note_hashtag_history` / `note_cooccurrence_history` テーブルと CRUD
+- [x] フェーズ1: バッチ処理への履歴スナップショット保存（`scraper.py` / `analyzer.py`）
+- [x] フェーズ1: API拡張（`with_diff` / `/api/hashtag-cooccurrence` / `/api/hashtag-history/{hashtag}`）
+- [x] フェーズ2-4: `HashtagResearch.tsx` 3タブ構成（浮上ワード / タグ統計 / 変化ログ + Sparkline）
+

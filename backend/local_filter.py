@@ -4,6 +4,7 @@ import db
 
 # グローバル変数でモデルを保持（シングルトンパターン）
 _MODEL_INSTANCE = None
+_DYNAMIC_NEGATIVE_HEADLINES = None
 
 def get_model():
     """SentenceTransformerモデルのシングルトンインスタンスを取得します。"""
@@ -40,24 +41,53 @@ def calculate_similarity(keyword: str, themes: list) -> float:
     max_score = float(cos_scores.max().cpu().item())
     return max_score
 
+def set_dynamic_negative_headlines(headlines: list):
+    """バッチ実行時に取得した時事ニュースヘッドラインをキャッシュします。"""
+    global _DYNAMIC_NEGATIVE_HEADLINES
+    _DYNAMIC_NEGATIVE_HEADLINES = headlines if headlines else None
+
+def get_dynamic_negative_headlines() -> list:
+    """キャッシュされた動的ネガティブヘッドラインを返します。"""
+    return _DYNAMIC_NEGATIVE_HEADLINES or []
+
 def check_keyword_relevance(keyword: str) -> bool:
-    """キーワードが現在のシステム設定にあるターゲットテーマに合致するか判定します。"""
+    """キーワードが現在のシステム設定にあるターゲットテーマに合致するか判定します（相対比較ロジック）。"""
     settings = db.get_settings()
     themes = settings.get("target_themes", [])
-    threshold = float(settings.get("similarity_threshold", 0.55))
+    negatives = list(settings.get("negative_themes", [
+        "スポーツ、自転車レース、ツールドフランス、ツールド、ロードバイク、陸上、野球、サッカー、運動、大会",
+        "店舗、中古買取、リサイクルショップ、中古ツール、工具、ツールオフ、販売、オークション、一般雑貨",
+        "行政、土木工事、都市計画、開発局、開発行為、開発許可、道路、インフラ整備、土地開発、宅地開発",
+        "日常生活、雑談、挨拶、感情、天気、旅行、京都、鹿児島、地域名、観光地、修学旅行、学校行事",
+        "エンタメ、芸能人、テレビ、音楽、映画、アニメ、アイドル、ゲーム、バズワード、キャラクター、声優"
+    ]))
+    threshold = float(settings.get("similarity_threshold", 0.81))
     
-    # NGワードによる簡易前処理フィルタリング（完全/部分一致）
+    # NGワードによる簡易前処理フィルタリング（部分一致）
     ng_words = settings.get("ng_keywords", [])
     for ng in ng_words:
         if ng in keyword:
             print(f"NGワード検知により除外: [{keyword}] -> NG: {ng}")
             return False
             
-    # NLPによる意味類似度判定
-    max_score = calculate_similarity(keyword, themes)
-    is_relevant = max_score >= threshold
+    # NLPによる意味類似度判定 (ターゲット vs ネガティブ)
+    max_target_score = calculate_similarity(keyword, themes)
+    max_negative_score = calculate_similarity(keyword, negatives)
+
+    # 動的ネガティブテーマ（当日の時事ニュース）との類似度も加味
+    dynamic_headlines = get_dynamic_negative_headlines()
+    max_dynamic_score = 0.0
+    if dynamic_headlines:
+        max_dynamic_score = calculate_similarity(keyword, dynamic_headlines)
+        max_negative_score = max(max_negative_score, max_dynamic_score)
     
-    print(f"NLP判定結果: [{keyword}] -> 最大類似度: {max_score:.4f} (しきい値: {threshold}) -> 採用: {is_relevant}")
+    diff = max_target_score - max_negative_score
+    
+    # ターゲット類似度がネガティブよりも一定マージン(0.02)以上高く、かつ閾値を超えていること
+    is_relevant = (diff >= 0.02) and (max_target_score >= threshold)
+    
+    dynamic_info = f", Dynamic: {max_dynamic_score:.4f}" if dynamic_headlines else ""
+    print(f"NLP判定結果: [{keyword}] -> Target: {max_target_score:.4f}, Negative: {max_negative_score:.4f}{dynamic_info}, Diff: {diff:.4f} (しきい値: {threshold}) -> 採用: {is_relevant}")
     return is_relevant
 
 # UIシミュレータ用のヘルパー

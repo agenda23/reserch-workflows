@@ -17,7 +17,8 @@ import {
   TrendingUp, 
   Loader2,
   Sparkles,
-  ArrowUpDown
+  ArrowUpDown,
+  Target
 } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table"
@@ -32,6 +33,8 @@ interface TrendData {
   note_score: number
   total_score: number
   status: string
+  supply_count: number
+  priority_score: number
 }
 
 interface BatchStatus {
@@ -226,19 +229,32 @@ export const Dashboard: React.FC = () => {
     if (active && payload && payload.length) {
       const data = payload[0].payload
       return (
-        <div className="rounded-lg border border-white/10 bg-card/90 backdrop-blur-md p-3 text-xs shadow-xl space-y-1">
+        <div className="rounded border border-border bg-card p-3.5 text-xs shadow-md space-y-1">
           <p className="font-bold text-sm text-primary">{data.keyword}</p>
-          <p><span className="text-muted-foreground">分類:</span> {data.status}</p>
-          <p><span className="text-muted-foreground">X (バズ) スコア:</span> {data.x.toFixed(4)}</p>
-          <p><span className="text-muted-foreground">note (需要) スコア:</span> {data.y.toFixed(4)}</p>
-          <p className="border-t border-white/5 pt-1 mt-1 font-bold">
-            <span className="text-muted-foreground">総合スコア:</span> {data.total_score.toFixed(4)}
+          <p><span className="text-muted-foreground font-semibold">分類:</span> {data.status}</p>
+          <p><span className="text-muted-foreground font-semibold">X (バズ) スコア:</span> {data.x.toFixed(4)}</p>
+          <p><span className="text-muted-foreground font-semibold">note (需要) スコア:</span> {data.y.toFixed(4)}</p>
+          <p className="border-t border-border pt-1.5 mt-1.5 font-bold text-foreground">
+            <span className="text-muted-foreground font-semibold">総合スコア:</span> {data.total_score.toFixed(4)}
           </p>
         </div>
       )
     }
     return null
   }
+
+  // ブルーオーシャン推奨（Priority Score上位）
+  const formatPriorityScore = (item: TrendData) => {
+    const score = (item.priority_score ?? 0).toFixed(2)
+    return (item.supply_count ?? 0) === 0 ? `~${score}` : score
+  }
+
+  const priorityRecommendations = React.useMemo(() => {
+    return [...data]
+      .filter(item => item.status.includes("第1") || item.status.includes("第4"))
+      .sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0))
+      .slice(0, 5)
+  }, [data])
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -283,36 +299,83 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* バッチステータス詳細表示 */}
-            <div className="border border-white/5 bg-secondary/20 rounded-lg p-4 space-y-2">
+            <div className="border border-border bg-muted/40 rounded-md p-4 space-y-2">
               <div className="flex justify-between items-center text-xs">
                 <span className="font-semibold text-muted-foreground">現在の状況</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                  batchStatus.status === "running" ? "bg-amber-500/20 text-amber-300 animate-pulse" :
-                  batchStatus.status === "success" ? "bg-emerald-500/20 text-emerald-300" :
-                  batchStatus.status === "failed" ? "bg-red-500/20 text-red-300" :
-                  "bg-muted/30 text-muted-foreground"
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                  batchStatus.status === "running" ? "bg-amber-100 text-amber-800 border-amber-200 animate-pulse" :
+                  batchStatus.status === "success" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+                  batchStatus.status === "failed" ? "bg-red-100 text-red-800 border-red-200" :
+                  "bg-secondary text-secondary-foreground border-border"
                 }`}>
                   {batchStatus.status === "running" ? "実行中" :
                    batchStatus.status === "success" ? "完了" :
                    batchStatus.status === "failed" ? "エラー" : "待機中"}
                 </span>
               </div>
-              <p className="text-sm font-medium">{batchStatus.message || "待機中"}</p>
+              <p className="text-sm font-semibold text-foreground">{batchStatus.message || "待機中"}</p>
               
               {batchStatus.status === "running" && (
-                <div className="space-y-1 pt-1">
-                  <div className="h-2 w-full bg-secondary/80 rounded-full overflow-hidden">
+                <div className="space-y-1.5 pt-1">
+                  <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-primary transition-all duration-500" 
                       style={{ width: `${batchStatus.progress}%` }}
                     />
                   </div>
-                  <div className="flex justify-end text-[10px] text-muted-foreground">
+                  <div className="flex justify-end text-[10px] font-mono text-muted-foreground">
                     {batchStatus.progress}%
                   </div>
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* ブルーオーシャン推奨ランキング */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-emerald-600" />
+              ブルーオーシャン推奨
+            </CardTitle>
+            <CardDescription>
+              需要が高く競合が少ないキーワード（Priority Score順）
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {priorityRecommendations.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                データがありません。バッチ実行後に表示されます。
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {priorityRecommendations.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-2.5 rounded-md border border-border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setHighlightedKeyword(item.keyword)
+                      const row = document.getElementById(`row-${item.keyword}`)
+                      row?.scrollIntoView({ behavior: "smooth", block: "center" })
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-xs font-bold text-emerald-600 w-5 shrink-0">#{idx + 1}</span>
+                      <span className="font-semibold text-sm truncate">{item.keyword}</span>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <p className="text-xs font-mono font-bold text-emerald-600">
+                        {formatPriorityScore(item)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        供給 {item.supply_count?.toLocaleString() ?? 0}件
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -334,37 +397,37 @@ export const Dashboard: React.FC = () => {
               <ScatterChart
                 margin={{ top: 20, right: 30, bottom: 20, left: 10 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
                 <XAxis 
                   type="number" 
                   dataKey="x" 
                   name="X Score" 
                   domain={[0, 1.05]} 
-                  stroke="rgba(255,255,255,0.4)"
+                  stroke="rgba(0,0,0,0.3)"
                   tick={{ fontSize: 10 }}
                 >
-                  <Label value="Xバズ（話題の広さ）" offset={-10} position="insideBottom" fill="rgba(255,255,255,0.6)" fontSize={11} />
+                  <Label value="Xバズ（話題の広さ）" offset={-10} position="insideBottom" fill="rgba(0,0,0,0.5)" fontSize={11} />
                 </XAxis>
                 <YAxis 
                   type="number" 
                   dataKey="y" 
                   name="note Score" 
                   domain={[0, 1.05]}
-                  stroke="rgba(255,255,255,0.4)"
+                  stroke="rgba(0,0,0,0.3)"
                   tick={{ fontSize: 10 }}
                 >
-                  <Label value="note需要（関心の深さ）" angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill="rgba(255,255,255,0.6)" fontSize={11} />
+                  <Label value="note需要（関心の深さ）" angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill="rgba(0,0,0,0.5)" fontSize={11} />
                 </YAxis>
-                <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: 'rgba(255,255,255,0.2)' }} />
+                <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: 'rgba(0,0,0,0.15)' }} />
                 
                 {/* 4象限を分ける基準線（平均値目安） */}
-                <ReferenceLine x={0.5} stroke="rgba(255,255,255,0.15)" strokeDasharray="5 5" />
-                <ReferenceLine y={0.5} stroke="rgba(255,255,255,0.15)" strokeDasharray="5 5" />
+                <ReferenceLine x={0.5} stroke="rgba(0,0,0,0.15)" strokeDasharray="5 5" />
+                <ReferenceLine y={0.5} stroke="rgba(0,0,0,0.15)" strokeDasharray="5 5" />
                 
                 <Scatter 
                   name="Keywords" 
                   data={chartData} 
-                  fill="#6366f1" 
+                  fill="#0176D3" 
                   cursor="pointer"
                   onClick={handleScatterClick}
                   // ドットのスタイル調整
@@ -376,9 +439,9 @@ export const Dashboard: React.FC = () => {
                         cy={cy} 
                         r={6} 
                         fill="hsl(var(--primary))" 
-                        stroke="rgba(255,255,255,0.5)" 
-                        strokeWidth={1}
-                        className="transition-all hover:scale-150 duration-200"
+                        stroke="rgba(255,255,255,0.8)" 
+                        strokeWidth={1.5}
+                        className="transition-all hover:scale-150 duration-200 shadow-sm"
                       />
                     );
                   }}
@@ -405,27 +468,34 @@ export const Dashboard: React.FC = () => {
                 placeholder="キーワード検索..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 w-full bg-secondary/30 border border-white/10 rounded-md h-9 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="pl-9 w-full bg-background border border-border rounded h-9 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
               />
             </div>
           </CardHeader>
-          <CardContent className="p-0 max-h-[400px] overflow-y-auto relative">
-            <Table>
-              <TableHeader className="sticky top-0 bg-card/90 backdrop-blur-md z-10 shadow-sm border-b">
+          <CardContent className="p-0">
+            <div className="max-h-[400px] overflow-auto">
+            <Table className="min-w-[920px]">
+              <TableHeader className="sticky top-0 bg-card z-10 shadow-sm border-b">
                 <TableRow>
-                  <TableHead className="w-[40%] cursor-pointer hover:text-foreground" onClick={() => handleSort("keyword")}>
+                  <TableHead className="min-w-[100px] cursor-pointer hover:text-foreground whitespace-nowrap" onClick={() => handleSort("keyword")}>
                     キーワード <ArrowUpDown className="inline h-3 w-3 ml-1" />
                   </TableHead>
-                  <TableHead className="w-[15%] cursor-pointer hover:text-foreground text-right" onClick={() => handleSort("total_score")}>
-                    総合スコア <ArrowUpDown className="inline h-3 w-3 ml-1" />
+                  <TableHead className="min-w-[88px] cursor-pointer hover:text-foreground text-right whitespace-nowrap px-3" onClick={() => handleSort("total_score")}>
+                    総合 <ArrowUpDown className="inline h-3 w-3 ml-1" />
                   </TableHead>
-                  <TableHead className="w-[15%] cursor-pointer hover:text-foreground text-right" onClick={() => handleSort("x_score")}>
+                  <TableHead className="min-w-[72px] cursor-pointer hover:text-foreground text-right whitespace-nowrap px-3" onClick={() => handleSort("x_score")}>
                     Xバズ <ArrowUpDown className="inline h-3 w-3 ml-1" />
                   </TableHead>
-                  <TableHead className="w-[15%] cursor-pointer hover:text-foreground text-right" onClick={() => handleSort("note_score")}>
+                  <TableHead className="min-w-[80px] cursor-pointer hover:text-foreground text-right whitespace-nowrap px-3" onClick={() => handleSort("note_score")}>
                     note需要 <ArrowUpDown className="inline h-3 w-3 ml-1" />
                   </TableHead>
-                  <TableHead className="w-[15%] cursor-pointer hover:text-foreground" onClick={() => handleSort("status")}>
+                  <TableHead className="min-w-[88px] cursor-pointer hover:text-foreground text-right whitespace-nowrap px-3" onClick={() => handleSort("supply_count")}>
+                    供給数 <ArrowUpDown className="inline h-3 w-3 ml-1" />
+                  </TableHead>
+                  <TableHead className="min-w-[80px] cursor-pointer hover:text-foreground text-right whitespace-nowrap px-3" onClick={() => handleSort("priority_score")}>
+                    優先度 <ArrowUpDown className="inline h-3 w-3 ml-1" />
+                  </TableHead>
+                  <TableHead className="min-w-[148px] cursor-pointer hover:text-foreground whitespace-nowrap" onClick={() => handleSort("status")}>
                     分類 <ArrowUpDown className="inline h-3 w-3 ml-1" />
                   </TableHead>
                 </TableRow>
@@ -433,14 +503,14 @@ export const Dashboard: React.FC = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
                       読み込み中...
                     </TableCell>
                   </TableRow>
                 ) : filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                       データがありません。収集バッチを実行してください。
                     </TableCell>
                   </TableRow>
@@ -449,22 +519,24 @@ export const Dashboard: React.FC = () => {
                     <TableRow 
                       key={item.id}
                       id={`row-${item.keyword}`}
-                      className={`transition-all duration-500 border-white/5 ${
+                      className={`transition-all duration-300 border-border ${
                         highlightedKeyword === item.keyword 
-                          ? "bg-primary/20 hover:bg-primary/20 scale-[0.99] font-bold" 
-                          : "hover:bg-secondary/40"
+                          ? "bg-primary/10 hover:bg-primary/15 font-bold" 
+                          : "hover:bg-muted/40"
                       }`}
                     >
-                      <TableCell className="font-semibold text-foreground">{item.keyword}</TableCell>
-                      <TableCell className="text-right font-mono text-primary font-bold">{item.total_score.toFixed(4)}</TableCell>
-                      <TableCell className="text-right font-mono">{item.x_score.toFixed(4)}</TableCell>
-                      <TableCell className="text-right font-mono">{item.note_score.toFixed(4)}</TableCell>
-                      <TableCell>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                          item.status.includes("第1") ? "bg-primary/25 text-primary-foreground border border-primary/30" :
-                          item.status.includes("第2") ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/20" :
-                          item.status.includes("第4") ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/20" :
-                          "bg-muted/40 text-muted-foreground"
+                      <TableCell className="font-semibold text-foreground whitespace-nowrap">{item.keyword}</TableCell>
+                      <TableCell className="text-right font-mono text-primary font-bold whitespace-nowrap px-3">{item.total_score.toFixed(4)}</TableCell>
+                      <TableCell className="text-right font-mono text-foreground/80 whitespace-nowrap px-3">{item.x_score.toFixed(4)}</TableCell>
+                      <TableCell className="text-right font-mono text-foreground/80 whitespace-nowrap px-3">{item.note_score.toFixed(4)}</TableCell>
+                      <TableCell className="text-right font-mono text-muted-foreground whitespace-nowrap px-3">{(item.supply_count ?? 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-emerald-600 whitespace-nowrap px-3">{formatPriorityScore(item)}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className={`inline-block text-[10px] px-2.5 py-0.5 rounded font-bold border whitespace-nowrap ${
+                          item.status.includes("第1") ? "bg-blue-50 text-blue-700 border-blue-200" :
+                          item.status.includes("第2") ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                          item.status.includes("第4") ? "bg-purple-50 text-purple-700 border-purple-200" :
+                          "bg-gray-50 text-gray-600 border-gray-200"
                         }`}>
                           {item.status}
                         </span>
@@ -474,6 +546,7 @@ export const Dashboard: React.FC = () => {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

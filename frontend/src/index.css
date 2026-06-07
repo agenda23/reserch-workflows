@@ -4,35 +4,35 @@
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
-    --foreground: 213 31% 91%;
+    --background: 210 20% 96%;       /* #F3F5F9 - 清潔感のあるライトグレーの背景 */
+    --foreground: 220 30% 12%;       /* #161B26 - 深みのあるダークネイビーの文字 */
 
-    --card: 222 47% 11.5%;
-    --card-foreground: 213 31% 91%;
+    --card: 0 0% 100%;               /* #FFFFFF - 純白のカード */
+    --card-foreground: 220 30% 12%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 213 31% 91%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 12%;
 
-    --primary: 250 89% 65%; /* 鮮やかで未来感のあるブルー・バイオレット */
+    --primary: 209 100% 41.6%;       /* #0176D3 - Salesforceのアイコニックなブルー */
     --primary-foreground: 210 20% 98%;
 
-    --secondary: 222 47% 16%;
-    --secondary-foreground: 210 20% 98%;
+    --secondary: 210 14% 89%;        /* 落ち着いたライトグレー */
+    --secondary-foreground: 220 30% 12%;
 
-    --muted: 222 47% 16%;
-    --muted-foreground: 215.4 16.3% 56.9%;
+    --muted: 210 14% 94%;
+    --muted-foreground: 216 12% 44%;
 
-    --accent: 222 47% 18%;
-    --accent-foreground: 210 20% 98%;
+    --accent: 210 14% 94%;
+    --accent-foreground: 209 100% 41.6%;
 
-    --destructive: 0 63% 31%;
+    --destructive: 0 84% 39%;
     --destructive-foreground: 210 20% 98%;
 
-    --border: 222 47% 18%;
-    --input: 222 47% 18%;
-    --ring: 250 89% 65%;
+    --border: 214 32% 88%;           /* #D8DDE6 - 薄いグレーブルーの枠線 */
+    --input: 214 32% 88%;
+    --ring: 209 100% 41.6%;
 
-    --radius: 0.75rem;
+    --radius: 0.25rem;               /* スクエアに近いSalesforce風の角丸 */
   }
 }
 
@@ -42,12 +42,6 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    /* プレミアムなグラスモーフィズムを引き立てるダークグラデーションの背景 */
-    background-image: 
-      radial-gradient(at 0% 0%, hsla(222,47%,11%,1) 0, transparent 60%), 
-      radial-gradient(at 50% 0%, hsla(250,89%,35%,0.15) 0, transparent 50%),
-      radial-gradient(at 100% 0%, hsla(320,89%,35%,0.1) 0, transparent 40%);
-    background-attachment: fixed;
     min-height: 100vh;
   }
 }
@@ -66,9 +60,10 @@ html {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.3);
 }
+

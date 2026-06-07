@@ -11,7 +11,4 @@ RUN npm install --legacy-peer-deps
 # ソースコードのコピー
 COPY . .
 
-EXPOSE 5173
-
-# Vite開発サーバーを外部ホストからアクセス可能な形で起動 (--host)
-CMD ["npm", "run", "dev", "--", "--host"]
+ENTRYPOINT ["sh", "./docker-entrypoint.sh"]
